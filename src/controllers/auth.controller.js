@@ -103,3 +103,18 @@ export const authorityLogin = async (req, res) => {
     res.status(500).json({ msg: err.message });
   }
 };
+
+
+// controllers/auth.controller.js
+// ... (your existing imports and functions)
+
+// ✅ Logout
+export const logout = (req, res) => {
+  try {
+    // This is optional on the backend with JWTs, as the client handles token deletion.
+    // However, it's good for a clear API response.
+    res.status(200).json({ msg: 'Logout successful' });
+  } catch (err) {
+    res.status(500).json({ msg: err.message });
+  }
+};
