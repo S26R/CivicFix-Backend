@@ -4,18 +4,20 @@ import cors from "cors";
 import connectDB from "./config/db.js";
 import authRoutes from "./routes/auth.routes.js";
 import env from "./env.js";
+import dashboardRoutes from "./routes/dashboard.routes.js";
 
 dotenv.config();
 dotenv.config();
-console.log("ENV CHECK -> MONGO_URI:", process.env.MONGO_URI);
+
 
 connectDB();
 
 const app = express();
 app.use(cors());
 app.use(express.json());
-console.log("Registering /api/auth routes...");
-app.use("/api/auth", authRoutes);
 
+
+app.use("/api/auth", authRoutes);
+app.use("/api/dashboard", dashboardRoutes);
 
 app.listen(env.PORT, () => console.log(`🚀 Server running on port ${env.PORT}`));

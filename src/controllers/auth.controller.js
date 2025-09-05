@@ -57,16 +57,18 @@ export const login = async (req, res) => {
 };
 
 // ✅ Department Login
+// ✅ Department Login
 export const departmentLogin = async (req, res) => {
   try {
     const { phone, password } = req.body;
     const user = await User.findOne({ phone, role: "department" });
-    console.log(user);
+    
+    // 💡 Fix: Check if user exists BEFORE comparing passwords
+    if (!user) return res.status(404).json({ msg: "Department not found" });
+    
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) return res.status(401).json({ msg: "Invalid credentials" });
     
-    if (!user) return res.status(404).json({ msg: "Department not found" });
-
     const token = jwt.sign(
       { id: user._id, role: user.role },
       process.env.JWT_SECRET,

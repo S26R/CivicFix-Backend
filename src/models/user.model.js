@@ -5,10 +5,14 @@ const userSchema = new mongoose.Schema({
   phone: { type: String, required: true, unique: true },
   aadhaar: { type: String, required: true, unique: true },
   password: { type: String, required: true },
-  wardNumber: { type: String },        // for municipal area
-  villageArea: { type: String },       // optional if rural
-  location: { type: String }, 
-  role:{type:String,enum:['citizen','department','authority']}         // citizen or worker
+  wardNumber: { type: String },
+  villageArea: { type: String },
+  location: { type: String },
+  role: {
+    type: String,
+    enum: ['citizen', 'department', 'authority'],
+    default: 'citizen', // 💡 Fix: Add a default value
+  },
 }, { timestamps: true });
 
 export default mongoose.model("User", userSchema);
