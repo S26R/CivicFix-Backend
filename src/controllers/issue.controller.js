@@ -71,10 +71,75 @@ export const getCitizenFeed = async (req, res) => {
   }
 };
 
-// placeholders for future
-export const getAuthorityFeed = (req, res) => {
-  res.json({ message: "Authority feed - to be implemented" });
+
+// Authority Feed
+export const getAuthorityFeed = async (req, res) => {
+  try {
+    const { status = "pending", minScore } = req.query;
+
+    // Weights for authority scoring
+    const weightMap = { 
+      importance: 0.5,  // pre-defined severity or citizen-reported importance
+      upvotes: 0.3,     // community support
+      aging: 0.2         // older unresolved issues escalate
+    };
+
+    // Fetch issues by status
+    let issues = await Issue.find({ status }).lean();
+
+    // Calculate score dynamically
+    issues = issues.map(issue => {
+      const importanceFactor = issue.severity === "critical" ? 1
+                              : issue.severity === "major" ? 0.6
+                              : 0.3;
+
+      const upvoteFactor = Math.min(issue.upvotes / 100, 1); // normalized
+
+      const daysPending = Math.floor((Date.now() - new Date(issue.createdAt)) / (1000*60*60*24));
+      const agingFactor = Math.min(daysPending / 30, 1); // max 1 after 30 days
+
+      const score = 
+        weightMap.importance * importanceFactor +
+        weightMap.upvotes * upvoteFactor +
+        weightMap.aging * agingFactor;
+
+      return { ...issue, score };
+    });
+
+    // Optional Top Priority filter
+    if (minScore) {
+      issues = issues.filter(issue => issue.score >= parseFloat(minScore));
+    }
+
+    // Sort by score descending
+    issues.sort((a, b) => b.score - a.score);
+
+    // Pagination
+    const page = parseInt(req.query.page) || 1;
+    const limit = 20;
+    const startIndex = (page - 1) * limit;
+    const paginatedIssues = issues.slice(startIndex, startIndex + limit);
+
+    // Summary stats
+    const summary = {
+      new: await Issue.countDocuments({ status: "new" }),
+      inProgress: await Issue.countDocuments({ status: "inProgress" }),
+      resolved: await Issue.countDocuments({ status: "resolved" }),
+    };
+
+    res.json({
+      summary,
+      total: issues.length,
+      page,
+      issues: paginatedIssues
+    });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to fetch authority feed" });
+  }
 };
+
 
 export const getDepartmentFeed = (req, res) => {
   res.json({ message: "Department feed - to be implemented" });
