@@ -1,6 +1,6 @@
 import { v2 as cloudinary } from "cloudinary";
 import fs from "fs";
-import env from "../env";
+import env from "../env.js";
 
 // Configure Cloudinary
 cloudinary.config({
