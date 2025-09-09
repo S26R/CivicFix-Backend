@@ -1,19 +1,29 @@
-#SIH PS-25031
-# CivicFix-Backend
-Crowdsourced Civic lssue Reporting and Resolution System
+Let’s break it down:
 
-Background
+main branch → stays stable, only merged when something is fully tested and ready.
 
-Local governments often face challenges in promptly identifying, prioritizing, and resolving everyday civic issues like potholes, malfunctioning streetlights, or overflowing trash bins. While citizens may encounter these issues daily, a lack of effective reporting and tracking mechanisms limits municipal responsiveness. A streamlined, mobile-first solution can bridge this gap by empowering community members to submit real-world reports that municipalities can systematically address.
+model branch → like a staging ground for backend devs. Everyone merges their feature branches here after review.
 
-Detailed Description
+model-ankan (your branch) → your personal working branch. You push commits here while building routes, then open a pull request (PR) into model.
 
-The system revolves around an easy-to-use mobile interface that allows users to submit reports in real-time. Each report can contain a photo, automatic location tagging, and a short text or voice explanation, providing sufficient context. These submissions populate a centralized dashboard featuring a live, interactive map of the city's reported issues. The system highlights priority areas based on volume of submissions, urgency inferred from user inputs, or other configurable criteria.
+That workflow works really well in hackathons because:
 
-On the administrative side, staff access a powerful dashboard where they can view, filter, and categorize incoming reports. Automated routing directs each report to the relevant department such as sanitation or public works based on the issue type and location. System architecture accommodates spikes in reporting, ensuring quick image uploads, responsive performance across devices, and near real-time updates on both mobile and desktop clients.
+No one breaks the main branch accidentally.
 
-Expected Solution
+Everyone can test features together on the model branch.
 
-The final deliverable should include a mobile platform that supports cross-device functionality and seamless user experience. Citizens must be able to capture issues effortlessly, track the progress of their reports, and receive notifications through each stage — confirmation, acknowledgment, and resolution.
-On the back end, a web-based administrative portal should enable municipal staff to filter issues by category, location, or priority, assign tasks, update statuses, and communicate progress. The platform should integrate an automated routing engine that leverages report metadata to correctly allocate tasks to departments.
-A scalable, resilient backend must manage high volumes of multimedia content, support concurrent users, and provide APIs for future integrations or extensions. Lastly, the solution should deliver analytics and reporting features that offer insights into reporting trends, departmental response times, and overall system effectiveness — ultimately driving better civic engagement and government accountability.
+You can track who worked on what (through feature branches like model-ankan).
+
+A common naming style some teams use:
+
+feature/signup
+
+feature/login
+
+bugfix/auth-validation
+
+…but your model-ankan naming is perfectly fine if your team understands it.
+
+✨ One extra tip: enable branch protection rules on main (so nobody can push directly without PR/merge). That way, your final demo code is safe.
+
+Do you also want a PR review rule where at least one teammate must approve before merging into model? That makes teamwork smoother.
