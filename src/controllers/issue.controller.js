@@ -1,49 +1,96 @@
 import Issue from "../models/issue.model.js";
 import { uploadOnCloudinary } from "../utils/cloudinary.js"; // your util that returns { url, public_id, resource_type }
 import rateLimit from "express-rate-limit";
+
 export const createIssue = async (req, res) => {
   try {
-    const { topic, description, lat, lng, severity } = req.body;
+    let { topic, description, lat, lng, severity, department, joinExisting } =
+      req.body;
 
-    if (!topic || !description || !lat || !lng) {
+    // Remove extra quotes
+    topic = topic?.replace(/^"(.*)"$/, "$1");
+    description = description?.replace(/^"(.*)"$/, "$1");
+
+    // Convert numbers
+    lat = parseFloat(lat);
+    lng = parseFloat(lng);
+
+    // Convert to boolean if needed
+    if (typeof joinExisting === "string") {
+      joinExisting = joinExisting.toLowerCase() === "true";
+    }
+
+    if (!topic || !description || !lat || !lng || !department) {
       return res.status(400).json({ error: "Missing required fields" });
     }
 
-    // Upload media files (if any)
-    let media = [];
-
-    if (req.files && req.files.length > 0) {
-      const uploads = await Promise.all(
-        req.files.map(async (file) => {
-          const result = await uploadOnCloudinary(file.path);
-
-          return {
-            type: result.resource_type,
-            url: result.secure_url,
-            publicId: result.public_id,
-          };
-        })
-      );
-      media = uploads.filter(Boolean); // remove nulls
-    }
-
-    const newIssue = new Issue({
-      topic,
-      description,
-      severity: severity || "moderate",
+    const nearbyIssue = await Issue.findOne({
+      department,
       location: {
-        type: "Point",
-        coordinates: [parseFloat(lng), parseFloat(lat)],
+        $near: {
+          $geometry: { type: "Point", coordinates: [lng, lat] },
+          $maxDistance: 12, // 12 meters
+        },
       },
-      media,
-      uploadedBy: req.user.id, // from auth middleware
     });
 
-    await newIssue.save();
+    // Step 2: If similar issue exists & user hasn’t decided yet
+    if (nearbyIssue && joinExisting === undefined) {
+      return res.status(200).json({
+        similarFound: true,
+        nearbyIssue,
+        msg: "Similar issue found, do you want to join or create a new one?",
+      });
+    }
 
-    res
-      .status(201)
-      .json({ message: "Issue created successfully", issue: newIssue });
+    // Step 3: If user wants to join existing issue
+    else if (nearbyIssue && joinExisting === true) {
+      console.log("Joining existing issue:", nearbyIssue);
+      // Add this user to participants
+      if (!nearbyIssue.participants.includes(req.user.id)) {
+        nearbyIssue.participants.push(req.user.id);
+        await nearbyIssue.save();
+      }
+      return res
+        .status(200)
+        .json({ msg: "Joined existing issue", issue: nearbyIssue });
+    } else {
+      let media = [];
+
+      if (req.files && req.files.length > 0) {
+        const uploads = await Promise.all(
+          req.files.map(async (file) => {
+            const result = await uploadOnCloudinary(file.path);
+
+            return {
+              type: result.resource_type,
+              url: result.secure_url,
+              publicId: result.public_id,
+            };
+          })
+        );
+        media = uploads.filter(Boolean); // remove nulls
+      }
+
+      const newIssue = new Issue({
+        topic,
+        description,
+        department,
+        severity: severity || "moderate",
+        location: {
+          type: "Point",
+          coordinates: [parseFloat(lng), parseFloat(lat)],
+        },
+        media,
+        uploadedBy: req.user.id, // from auth middleware
+      });
+
+      await newIssue.save();
+ nhh
+      res
+        .status(201)
+        .json({ message: "Issue created successfully", issue: newIssue });
+    }
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Failed to create issue" });
@@ -51,7 +98,6 @@ export const createIssue = async (req, res) => {
 };
 
 // Citizen Feed
-
 export const getNearbyIssues = async (req, res) => {
   try {
     const { lng, lat, radius } = req.query;
@@ -63,7 +109,10 @@ export const getNearbyIssues = async (req, res) => {
     const issues = await Issue.find({
       location: {
         $near: {
-          $geometry: { type: "Point", coordinates: [parseFloat(lng), parseFloat(lat)] },
+          $geometry: {
+            type: "Point",
+            coordinates: [parseFloat(lng), parseFloat(lat)],
+          },
           $maxDistance: parseInt(radius) || 2000, // default 2 km
         },
       },
@@ -83,8 +132,7 @@ export const getAllIssues = async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
-}; 
-
+};
 
 // ✅ Upvote an issue
 export const upvoteIssue = async (req, res) => {
@@ -134,12 +182,11 @@ export const removeUpvote = async (req, res) => {
   }
 };
 
-export const rateLimiter =rateLimit({
-  window:60*1000,
-  max:5,
-  message:{msg:"Too many voting actions, please try again after a minute"}
+export const rateLimiter = rateLimit({
+  window: 60 * 1000,
+  max: 5,
+  message: { msg: "Too many voting actions, please try again after a minute" },
 });
-
 
 export const getCitizenFeed = async (req, res) => {
   try {

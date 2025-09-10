@@ -4,7 +4,21 @@ const issueSchema = new mongoose.Schema(
   {
     topic: { type: String, required: true },
     description: { type: String, required: true },
-
+ department: { 
+    type: String, 
+    enum: [
+      "Roads & Infrastructure Department",
+      "Street Lighting & Electricity Department",
+      "Water Supply & Drainage Department",
+      "Sanitation & Waste Management Department",
+      "Public Safety & Transport Department",
+      "Parks & Public Spaces Department",
+      "Pollution Control Department",
+      "Animal Control Department",
+      "General Department"
+    ],
+    required: true 
+  },
     // Media uploads
     media: [
       {
@@ -42,7 +56,7 @@ const issueSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
-linkedUsers: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+participants: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
     // Proof images from municipality for state changes
     municipalityProofs: [
       {
@@ -51,7 +65,7 @@ linkedUsers: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
         addedAt: { type: Date, default: Date.now },
       },
     ],
-
+joinExisting: { type: Boolean, default: false },
     falseReportChecks: [
       {
         userId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
