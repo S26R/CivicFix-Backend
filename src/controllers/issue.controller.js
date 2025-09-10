@@ -1,6 +1,6 @@
 import Issue from "../models/issue.model.js";
 import { uploadOnCloudinary } from "../utils/cloudinary.js"; // your util that returns { url, public_id, resource_type }
-
+import rateLimit from "express-rate-limit";
 export const createIssue = async (req, res) => {
   try {
     const { topic, description, lat, lng, severity } = req.body;
@@ -51,6 +51,96 @@ export const createIssue = async (req, res) => {
 };
 
 // Citizen Feed
+
+export const getNearbyIssues = async (req, res) => {
+  try {
+    const { lng, lat, radius } = req.query;
+
+    if (!lng || !lat) {
+      return res.status(400).json({ error: "Longitude and latitude required" });
+    }
+
+    const issues = await Issue.find({
+      location: {
+        $near: {
+          $geometry: { type: "Point", coordinates: [parseFloat(lng), parseFloat(lat)] },
+          $maxDistance: parseInt(radius) || 2000, // default 2 km
+        },
+      },
+    });
+
+    res.json(issues);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// ✅ Get all issues (for map)
+export const getAllIssues = async (req, res) => {
+  try {
+    const issues = await Issue.find();
+    res.json(issues);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+}; 
+
+
+// ✅ Upvote an issue
+export const upvoteIssue = async (req, res) => {
+  try {
+    const userId = req.user.id; // assuming auth middleware sets req.user
+    const issue = await Issue.findById(req.params.id);
+
+    if (!issue) {
+      return res.status(404).json({ msg: "Issue not found" });
+    }
+
+    if (issue.upvotes.includes(userId)) {
+      return res.status(400).json({ msg: "Already upvoted" });
+    }
+
+    issue.upvotes.push(userId);
+    await issue.save();
+
+    res.json({ msg: "Upvoted successfully", count: issue.upvotes.length });
+  } catch (err) {
+    res.status(500).json({ msg: "Server error", error: err.message });
+  }
+};
+
+// ✅ Remove upvote
+export const removeUpvote = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const issue = await Issue.findById(req.params.id);
+
+    if (!issue) {
+      return res.status(404).json({ msg: "Issue not found" });
+    }
+
+    if (!issue.upvotes.includes(userId)) {
+      return res.status(400).json({ msg: "You haven’t upvoted this issue" });
+    }
+
+    issue.upvotes = issue.upvotes.filter(
+      (id) => id.toString() !== userId.toString()
+    );
+    await issue.save();
+
+    res.json({ msg: "Upvote removed", count: issue.upvotes.length });
+  } catch (err) {
+    res.status(500).json({ msg: "Server error", error: err.message });
+  }
+};
+
+export const rateLimiter =rateLimit({
+  window:60*1000,
+  max:5,
+  message:{msg:"Too many voting actions, please try again after a minute"}
+});
+
+
 export const getCitizenFeed = async (req, res) => {
   try {
     const { lat, lng, context = "urban" } = req.query;

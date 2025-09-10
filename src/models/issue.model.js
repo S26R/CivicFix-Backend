@@ -22,7 +22,7 @@ const issueSchema = new mongoose.Schema(
       coordinates: { type: [Number], required: true }, // [lng, lat]
     },
 
-    upvotes: { type: Number, default: 0 },
+    upvotes: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
 
     severity: {
       type: String,
@@ -42,7 +42,7 @@ const issueSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
-
+linkedUsers: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
     // Proof images from municipality for state changes
     municipalityProofs: [
       {
