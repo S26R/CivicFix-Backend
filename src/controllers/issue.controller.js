@@ -1,3 +1,4 @@
+import e from "express";
 import Issue from "../models/issue.model.js";
 import { uploadOnCloudinary } from "../utils/cloudinary.js"; // your util that returns { url, public_id, resource_type }
 import rateLimit from "express-rate-limit";
@@ -97,6 +98,18 @@ export const createIssue = async (req, res) => {
   }
 };
 
+export const getIssueById = async (req, res) => {
+  try {
+    const issue = await Issue.findById(req.params.id);
+    if (!issue) {
+      return res.status(404).json({ error: "Issue not found" });
+    }
+    res.json(issue);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
 // Citizen Feed
 export const getNearbyIssues = async (req, res) => {
   try {
@@ -133,6 +146,45 @@ export const getAllIssues = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
+
+
+export const getUserIssues = async (req, res) => {
+  try {
+    const userId = req.params.id;
+    const issues = await Issue.find({ uploadedBy: userId });
+    res.json(issues);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};  
+
+
+export const deleteIssue = async (req, res) => {
+  try {
+    const issue = await Issue.findById(req.params.id);
+    if (!issue) {
+      return res.status(404).json({ msg: "Issue not found" });
+    }
+
+    // Check if the logged-in user is the one who created the issue
+    if (issue.uploadedBy.toString() !== req.user.id) {
+      return res.status(403).json({ msg: "Unauthorized action" });
+    }
+
+    await issue.deleteOne();
+    res.json({ msg: "Issue deleted successfully" });
+  } catch (err) {
+    res.status(500).json({ msg: "Server error", error: err.message });
+  }
+};
+
+
+
+
+
+
+
+
 
 // ✅ Upvote an issue
 export const upvoteIssue = async (req, res) => {
