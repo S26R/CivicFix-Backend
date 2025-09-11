@@ -11,8 +11,27 @@ const userSchema = new mongoose.Schema({
   role: {
     type: String,
     enum: ['citizen', 'department', 'authority'],
-    default: 'citizen', // 💡 Fix: Add a default value
+    default: 'citizen',
   },
+
+  // 🔹 Department users: track who assigned the issue and when
+  assignedIssues: [
+    {
+      issue: { type: mongoose.Schema.Types.ObjectId, ref: "Issue" },
+      assignedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" }, // authority
+      assignedAt: { type: Date, default: Date.now }
+    }
+  ],
+
+  // 🔹 Authority users: track issues they delegated
+  delegatedIssues: [
+    {
+      issue: { type: mongoose.Schema.Types.ObjectId, ref: "Issue" },
+      assignedDepartment: { type: mongoose.Schema.Types.ObjectId, ref: "User" }, // department user
+      assignedAt: { type: Date, default: Date.now }
+    }
+  ],
+
 }, { timestamps: true });
 
 export default mongoose.model("User", userSchema);

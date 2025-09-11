@@ -5,6 +5,37 @@ const issueSchema = new mongoose.Schema(
     topic: { type: String, required: true },
     description: { type: String, required: true },
 
+    department: { 
+      type: String, 
+      enum: [
+        "Roads & Infrastructure Department",
+        "Street Lighting & Electricity Department",
+        "Water Supply & Drainage Department",
+        "Sanitation & Waste Management Department",
+        "Public Safety & Transport Department",
+        "Parks & Public Spaces Department",
+        "Pollution Control Department",
+        "Animal Control Department",
+        "General Department"
+      ],
+      required: true 
+    },
+
+    // 🔹 Currently assigned department user
+    assignedDepartment: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+
+    // 🔹 Authority who assigned the issue
+    assignedByAuthority: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+
+    // 🔹 Assignment history (tracks reassignment too)
+    assignmentHistory: [
+      {
+        assignedDepartment: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+        assignedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" }, // authority
+        assignedAt: { type: Date, default: Date.now }
+      }
+    ],
+
     // Media uploads
     media: [
       {
@@ -22,7 +53,7 @@ const issueSchema = new mongoose.Schema(
       coordinates: { type: [Number], required: true }, // [lng, lat]
     },
 
-    upvotes: { type: Number, default: 0 },
+    upvotes: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
 
     severity: {
       type: String,
@@ -32,9 +63,18 @@ const issueSchema = new mongoose.Schema(
 
     status: {
       type: String,
-      enum: ["pending", "raised", "in-progress", "resolved"],
-      default: "pending",
+      enum: ["verifying", "raised", "in-progress", "resolved", "rejected", "assigned"],
+      default: "raised",
     },
+
+    // Track status changes
+    statusHistory: [
+      {
+        status: { type: String, enum: ["verifying", "in-progress", "resolved", "rejected", "assigned"] },
+        changedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+        changedAt: { type: Date, default: Date.now }
+      }
+    ],
 
     // Track the reporting user
     uploadedBy: {
@@ -42,6 +82,8 @@ const issueSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
+
+    participants: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
 
     // Proof images from municipality for state changes
     municipalityProofs: [
@@ -51,6 +93,8 @@ const issueSchema = new mongoose.Schema(
         addedAt: { type: Date, default: Date.now },
       },
     ],
+
+    joinExisting: { type: Boolean, default: false },
 
     falseReportChecks: [
       {
