@@ -87,8 +87,7 @@ export const createIssue = async (req, res) => {
       });
 
       await newIssue.save();
- nhh
-      res
+       res
         .status(201)
         .json({ message: "Issue created successfully", issue: newIssue });
     }
@@ -180,12 +179,6 @@ export const deleteIssue = async (req, res) => {
 
 
 
-
-
-
-
-
-
 // ✅ Upvote an issue
 export const upvoteIssue = async (req, res) => {
   try {
@@ -239,6 +232,15 @@ export const rateLimiter = rateLimit({
   max: 5,
   message: { msg: "Too many voting actions, please try again after a minute" },
 });
+
+
+
+
+
+
+
+//FEEDS OF ISSUES
+
 
 export const getCitizenFeed = async (req, res) => {
   try {
