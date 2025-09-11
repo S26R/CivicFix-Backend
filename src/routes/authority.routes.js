@@ -17,10 +17,7 @@ router.put('/issue/:id/updateStatus', authenticateUser, authorizeRoles("authorit
 
 // routes/admin.routes.js
 router.put("/issues/:id/assignIssue", authenticateUser, authorizeRoles("authority"), assignIssueToDepartment);
-//here param id is issue id but department id and admin id should be from body
-
-
-
+//here param id is issue id but department id and admin id should be from json body
 
 
 export default router;
