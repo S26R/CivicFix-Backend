@@ -8,6 +8,10 @@ import dashboardRoutes from "./routes/dashboard.routes.js";
 import issueRoutes from "./routes/issue.routes.js";
 import authorityRoutes from "./routes/authority.routes.js";
 import departmentRoutes from "./routes/department.routes.js";
+import job from "./utils/cron.js";
+    
+// Start the cron job
+job.start();
 dotenv.config();
 dotenv.config();
 
