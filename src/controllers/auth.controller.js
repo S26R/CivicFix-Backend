@@ -105,6 +105,23 @@ export const authorityLogin = async (req, res) => {
 };
 
 
+export const profile = async (req, res) => {
+  try {
+    const userId = req.params.id;
+    const user = await User.findById(userId).select('-password'); // Exclude password
+
+    if (!user) {
+      return res.status(404).json({ msg: 'User not found' });
+    }
+
+    res.json(user);
+  } catch (err) {
+    res.status(500).json({ msg: err.message });
+  }
+}
+
+
+
 // controllers/auth.controller.js
 // ... (your existing imports and functions)
 
