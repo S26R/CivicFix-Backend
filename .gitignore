@@ -1,4 +1,4 @@
-todo.txt
+
 
 node_modules/
 .env
@@ -140,4 +140,4 @@ dist
 # Optional stylelint cache
 
 # SvelteKit build / generate output
-.svelte-kit
+
