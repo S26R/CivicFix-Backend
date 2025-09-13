@@ -13,6 +13,9 @@ const env = {
   CLOUDINARY_API_SECRET:process.env.CLOUDINARY_API_SECRET
 };
 
+if (!env.CLOUDINARY_CLOUD_NAME || !env.CLOUDINARY_API_KEY || !env.CLOUDINARY_API_SECRET) {
+  throw new Error("❌ Missing Cloudinary environment variables");
+}
 
 
 if (!env.MONGO_URI) {
