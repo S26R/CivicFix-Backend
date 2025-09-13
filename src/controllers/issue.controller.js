@@ -245,7 +245,7 @@ export const rateLimiter = rateLimit({
 export const getCitizenFeed = async (req, res) => {
   try {
     const { lat, lng, context = "urban" } = req.query;
-
+      console.log(lat, lng, context);
     const weightMap = {
       rural: { alpha: 0.6, beta: 0.2, gamma: 0.2, delta: 0.0 },
       semiurban: { alpha: 0.4, beta: 0.3, gamma: 0.2, delta: 0.1 },
@@ -272,7 +272,12 @@ export const getCitizenFeed = async (req, res) => {
           proximityFactor: {
             $subtract: [1, { $divide: ["$distance", maxDistance] }],
           },
-          upvoteFactor: { $min: [{ $divide: ["$upvotes", 100] }, 1] },
+          upvoteFactor: { 
+  $min: [
+    { $divide: [{ $size: "$upvotes" }, 100] },
+    1
+  ] 
+},
           recencyFactor: {
             $exp: {
               $multiply: [
