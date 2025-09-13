@@ -1,8 +1,8 @@
 import e from "express";
 import Issue from "../models/issue.model.js";
-import { uploadOnCloudinary } from "../utils/cloudinary.js"; // your util that returns { url, public_id, resource_type }
+ // your util that returns { url, public_id, resource_type }
 import rateLimit from "express-rate-limit";
-
+import {uploadOnCloudinary} from "../utils/cloudinary.js";
 export const createIssue = async (req, res) => {
   try {
     let { topic, description, lat, lng, severity, department, joinExisting } =
@@ -87,7 +87,7 @@ export const createIssue = async (req, res) => {
       });
 
       await newIssue.save();
-       res
+      res
         .status(201)
         .json({ message: "Issue created successfully", issue: newIssue });
     }
@@ -146,7 +146,6 @@ export const getAllIssues = async (req, res) => {
   }
 };
 
-
 export const getUserIssues = async (req, res) => {
   try {
     const userId = req.params.id;
@@ -155,8 +154,7 @@ export const getUserIssues = async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
-};  
-
+};
 
 export const deleteIssue = async (req, res) => {
   try {
@@ -177,14 +175,12 @@ export const deleteIssue = async (req, res) => {
   }
 };
 
-
-
 // ✅ Upvote an issue
 export const upvoteIssue = async (req, res) => {
   try {
     const userId = req.user.id; // assuming auth middleware sets req.user
     const issue = await Issue.findById(req.params.id);
-
+    console.log(issue);
     if (!issue) {
       return res.status(404).json({ msg: "Issue not found" });
     }
@@ -233,19 +229,12 @@ export const rateLimiter = rateLimit({
   message: { msg: "Too many voting actions, please try again after a minute" },
 });
 
-
-
-
-
-
-
 //FEEDS OF ISSUES
-
 
 export const getCitizenFeed = async (req, res) => {
   try {
     const { lat, lng, context = "urban" } = req.query;
-      console.log(lat, lng, context);
+    console.log(lat, lng, context);
     const weightMap = {
       rural: { alpha: 0.6, beta: 0.2, gamma: 0.2, delta: 0.0 },
       semiurban: { alpha: 0.4, beta: 0.3, gamma: 0.2, delta: 0.1 },
@@ -272,12 +261,9 @@ export const getCitizenFeed = async (req, res) => {
           proximityFactor: {
             $subtract: [1, { $divide: ["$distance", maxDistance] }],
           },
-          upvoteFactor: { 
-  $min: [
-    { $divide: [{ $size: "$upvotes" }, 100] },
-    1
-  ] 
-},
+          upvoteFactor: {
+            $min: [{ $divide: [{ $size: "$upvotes" }, 100] }, 1],
+          },
           recencyFactor: {
             $exp: {
               $multiply: [
