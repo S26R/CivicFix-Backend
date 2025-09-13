@@ -1,21 +1,7 @@
 import multer from "multer";
-import fs from "fs";
-import path from "path";
 
-const tempDir = path.join(process.cwd(), "public", "temp");
+// Memory storage — avoids local disk usage
+const storage = multer.memoryStorage();
 
-// Ensure folder exists
-if (!fs.existsSync(tempDir)) {
-  fs.mkdirSync(tempDir, { recursive: true });
-}
-
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, tempDir);
-  },
-  filename: function (req, file, cb) {
-    cb(null, file.originalname);
-  }
-});
-
+// Export multer middleware
 export const upload = multer({ storage });

@@ -58,20 +58,22 @@ export const createIssue = async (req, res) => {
     } else {
       let media = [];
 
-      if (req.files && req.files.length > 0) {
-        const uploads = await Promise.all(
-          req.files.map(async (file) => {
-            const result = await uploadOnCloudinary(file.path);
+if (req.files && req.files.length > 0) {
+  const uploads = await Promise.all(
+    req.files.map(async (file) => {
+      // file.buffer comes from memoryStorage
+      const result = await uploadOnCloudinary(file.buffer, file.originalname);
+      if (!result) return null;
 
-            return {
-              type: result.resource_type,
-              url: result.secure_url,
-              publicId: result.public_id,
-            };
-          })
-        );
-        media = uploads.filter(Boolean); // remove nulls
-      }
+      return {
+        type: result.resource_type,
+        url: result.secure_url,
+        publicId: result.public_id,
+      };
+    })
+  );
+  media = uploads.filter(Boolean);
+}
 
       const newIssue = new Issue({
         topic,
