@@ -22,7 +22,7 @@ router.get("/feed/department", authenticateUser, authorizeRoles("department"), g
 //ISSUES
 router.post("/create", upload.array("media", 3), authenticateUser, authorizeRoles("citizen"), createIssue);
 router.get("/allissues", authenticateUser,  getAllIssues);
-router.get("/:id",authenticateUser, getIssueById);
+router.get("/:id",authenticateUser,authorizeRoles("citizen","department","authority"), getIssueById);
 router.get("/user/:id", authenticateUser,authorizeRoles("citizen"), getUserIssues); // issues by user id here id is users id
 router.get("/nearby", authenticateUser, getNearbyIssues);
 router.delete("/:id", authenticateUser, authorizeRoles("citizen"), deleteIssue);
