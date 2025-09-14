@@ -208,9 +208,9 @@ export const assignIssueToDepartment = async (req, res) => {
     await issue.save();
 
     // Update department user's assignedIssues only if not already present
-    const deptHasIssue = departmentUser.assignedIssues.some(
-      ai => ai.issue.toString() === issue._id.toString()
-    );
+   const deptHasIssue = departmentUser.assignedIssues.some(
+  ai => ai.issue && ai.issue.toString() === issue._id.toString()
+);
     if (!deptHasIssue) {
       departmentUser.assignedIssues.push({
         issue: issue._id,
@@ -222,9 +222,12 @@ export const assignIssueToDepartment = async (req, res) => {
 
     // Update authority user's delegatedIssues only if not already present
     const authorityHasDelegated = authorityUser.delegatedIssues.some(
-      di => di.issue.toString() === issue._id.toString() &&
-            di.assignedDepartment.toString() === departmentUser._id.toString()
-    );
+  di =>
+    di.issue &&
+    di.assignedDepartment &&
+    di.issue.toString() === issue._id.toString() &&
+    di.assignedDepartment.toString() === departmentUser._id.toString()
+);
     if (!authorityHasDelegated) {
       authorityUser.delegatedIssues.push({
         issue: issue._id,
