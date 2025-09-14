@@ -1,78 +1,160 @@
 import Issue from "../models/issue.model.js";
 import userModel from "../models/user.model.js";
 import User from "../models/user.model.js";
+// controllers/admin.analytics.controller.js
+
+
 export const getAnalyticsData = async (req, res) => {
   try {
-    const [
-      statusCounts,
-      deptCounts,
-      severityCounts,
-      trend,
-      totalUsers,
-      activeUsers,
-    ] = await Promise.all([
-      Issue.aggregate([{ $group: { _id: "$status", count: { $sum: 1 } } }]),
-      Issue.aggregate([{ $group: { _id: "$department", count: { $sum: 1 } } }]),
-      Issue.aggregate([{ $group: { _id: "$severity", count: { $sum: 1 } } }]),
-      Issue.aggregate([
-        {
-          $match: {
-            createdAt: {
-              $gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
-            },
-          },
-        },
-        {
-          $group: {
-            _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
-            count: { $sum: 1 },
-          },
-        },
-        { $sort: { _id: 1 } },
-      ]),
-      Issue.aggregate([
-        {
-          $match: {
-            createdAt: {
-              $gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
-            },
-          },
-        },
-        {
-          $group: {
-            _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
-            count: { $sum: 1 },
-          },
-        },
-        { $sort: { _id: 1 } },
-      ]),
-      Issue.aggregate([
-        { $group: { _id: "$location.coordinates", count: { $sum: 1 } } },
-        { $sort: { count: -1 } },
-        { $limit: 10 },
-      ]),
-
-      userModel.countDocuments(),
-      userModel.countDocuments({
-        lastActive: { $gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },
-      }),
+    // 1) Basic status counts
+    const countsByStatusAgg = Issue.aggregate([
+      { $group: { _id: "$status", count: { $sum: 1 } } },
     ]);
 
-    res.json({
-      success: true,
-      data: {
-        statusCounts,
-        deptCounts,
-        severityCounts,
-        trend,
-        users: { total: totalUsers, active: activeUsers },
+    // 2) Counts by department
+    const countsByDepartmentAgg = Issue.aggregate([
+      { $group: { _id: "$department", count: { $sum: 1 } } },
+    ]);
+
+    // 3) Counts by severity
+    const countsBySeverityAgg = Issue.aggregate([
+      { $group: { _id: "$severity", count: { $sum: 1 } } },
+    ]);
+
+    // 4) Issues over time (monthly buckets last 6 months)
+    const sixMonthsAgo = new Date();
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 5); // includes this month -> 6 months range
+    const issuesOverTimeAgg = Issue.aggregate([
+      { $match: { createdAt: { $gte: new Date(sixMonthsAgo.setHours(0,0,0,0)) } } },
+      {
+        $group: {
+          _id: { year: { $year: "$createdAt" }, month: { $month: "$createdAt" } },
+          count: { $sum: 1 },
+        },
       },
-    });
-  } catch (error) {
-    console.error("Analytics fetch failed:", error);
-    res.status(500).json({ success: false, error: "Server error" });
+      { $sort: { "_id.year": 1, "_id.month": 1 } },
+    ]);
+
+    // 5) Average resolution time (for resolved issues) in hours
+    const avgResolutionAgg = Issue.aggregate([
+      { $match: { status: "resolved", createdAt: { $exists: true }, updatedAt: { $exists: true } } },
+      {
+        $project: {
+          diffHours: {
+            $divide: [{ $subtract: ["$updatedAt", "$createdAt"] }, 1000 * 60 * 60],
+          },
+        },
+      },
+      { $group: { _id: null, avgHours: { $avg: "$diffHours" }, count: { $sum: 1 } } },
+    ]);
+
+    // 6) Top reporters (users who uploaded most issues) - top 5
+    const topReportersAgg = Issue.aggregate([
+      { $group: { _id: "$uploadedBy", count: { $sum: 1 } } },
+      { $sort: { count: -1 } },
+      { $limit: 5 },
+      // lookup user details
+      {
+        $lookup: {
+          from: "users",
+          localField: "_id",
+          foreignField: "_id",
+          as: "user",
+        },
+      },
+      { $unwind: { path: "$user", preserveNullAndEmptyArrays: true } },
+      {
+        $project: {
+          _id: 0,
+          userId: "$user._id",
+          name: { $ifNull: ["$user.email", "$user.phone"] },
+          count: 1,
+        },
+      },
+    ]);
+
+    // 7) Top upvoted issues (top 5)
+    const topUpvotedAgg = Issue.aggregate([
+      { $project: { topic: 1, upvotesCount: { $size: { $ifNull: ["$upvotes", []] } }, createdAt: 1 } },
+      { $sort: { upvotesCount: -1, createdAt: -1 } },
+      { $limit: 5 },
+    ]);
+
+    // 8) Hotspots — cluster by rounding coordinates (grid -> counts per grid cell)
+    const hotspotsAgg = Issue.aggregate([
+      { $match: { location: { $exists: true, $ne: null } } },
+      {
+        $project: {
+          lat: { $arrayElemAt: ["$location.coordinates", 1] },
+          lng: { $arrayElemAt: ["$location.coordinates", 0] },
+        },
+      },
+      // round to 2 decimal (~1km) for grouping (tune precision as needed)
+      {
+        $project: {
+          latRound: { $round: ["$lat", 2] },
+          lngRound: { $round: ["$lng", 2] },
+        },
+      },
+      {
+        $group: {
+          _id: { lat: "$latRound", lng: "$lngRound" },
+          count: { $sum: 1 },
+        },
+      },
+      { $sort: { count: -1 } },
+      { $limit: 10 },
+    ]);
+
+    // 9) total count
+    const totalAgg = Issue.aggregate([{ $count: "total" }]);
+
+    // run all aggregations in parallel
+    const [
+      countsByStatus,
+      countsByDepartment,
+      countsBySeverity,
+      issuesOverTime,
+      avgResolution,
+      topReporters,
+      topUpvoted,
+      hotspots,
+      totalResult,
+    ] = await Promise.all([
+      countsByStatusAgg,
+      countsByDepartmentAgg,
+      countsBySeverityAgg,
+      issuesOverTimeAgg,
+      avgResolutionAgg,
+      topReportersAgg,
+      topUpvotedAgg,
+      hotspotsAgg,
+      totalAgg,
+    ]);
+
+    const total = totalResult.length ? totalResult[0].total : 0;
+    const avgResolutionHours = avgResolution.length ? avgResolution[0].avgHours : null;
+
+    // shape the response nicely
+    const response = {
+      total,
+      byStatus: countsByStatus.reduce((acc, cur) => ({ ...acc, [cur._id]: cur.count }), {}),
+      byDepartment: countsByDepartment.reduce((acc, cur) => ({ ...acc, [cur._id]: cur.count }), {}),
+      bySeverity: countsBySeverity.reduce((acc, cur) => ({ ...acc, [cur._id]: cur.count }), {}),
+      issuesOverTime: issuesOverTime.map(i => ({ year: i._id.year, month: i._id.month, count: i.count })),
+      avgResolutionHours,
+      topReporters,
+      topUpvoted,
+      hotspots: hotspots.map(h => ({ lat: h._id.lat, lng: h._id.lng, count: h.count })),
+    };
+
+    res.json({ success: true, data: response });
+  } catch (err) {
+    console.error("Analytics error:", err);
+    res.status(500).json({ success: false, message: "Analytics error", error: err.message });
   }
 };
+
 
 
 export const getAllIssuesForAuthority = async (req, res) => {
