@@ -167,11 +167,11 @@ export const getAllIssuesForAuthority = async (req, res) => {
   }
 };
 
-export const getAllUsers = async (req, res) => {
+export const getAllCitizen = async (req, res) => {
   try {
     // Filter out authority users
     const users = await userModel
-      .find({ role: { $ne: "authority" } }) // adjust if your schema uses a different field
+      .find({ role: { $ne: "authority" ,$ne: "department"} }) // adjust if your schema uses a different field
       .select("-password"); // exclude password field only
 
     res.json(users);
@@ -180,7 +180,19 @@ export const getAllUsers = async (req, res) => {
     res.status(500).json({ success: false, error: "Server error" });
   }
 };
+export const getAllDepartment = async (req, res) => {
+  try {
+    // Filter out authority users
+    const users = await userModel
+      .find({ role: { $ne: "authority" ,$ne: "citizen"} }) // adjust if your schema uses a different field
+      .select("-password"); // exclude password field only
 
+    res.json(users);
+  } catch (error) {
+    console.error("Failed to fetch users:", error);
+    res.status(500).json({ success: false, error: "Server error" });
+  }
+};
 
 
 //Update Issues Status By issueID only work for authority  also a logs the status history feature so that we can track
@@ -333,6 +345,36 @@ await issue.save();
 
 
 
+
+export const getIssuesByStatus = async (req, res) => {
+  try {
+    const { status } = req.query;
+
+    if (!status) {
+      return res.status(400).json({
+        success: false,
+        message: "Status query param is required",
+      });
+    }
+
+    // Find issues by status (case-insensitive)
+    const issues = await Issue.find({ status: status.toLowerCase() }).sort({
+      createdAt: -1,
+    });
+
+    return res.json({
+      success: true,
+      count: issues.length,
+      issues,
+    });
+  } catch (error) {
+    console.error("Error fetching issues by status:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Server error while fetching issues",
+    });
+  }
+};
 
 
 
