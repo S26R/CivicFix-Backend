@@ -9,7 +9,11 @@ export const getDepartmentIssues = async (req, res) => {
       return res.status(403).json({ success: false, message: "Access denied" });
     }
 
-    const issues = await Issue.find({ assignedDepartment: user._id })
+    // Fetch only issues that have assignmentHistory not empty
+    const issues = await Issue.find({
+      assignmentHistory: { $exists: true, $not: { $size: 0 } },
+      assignedDepartment: user.id, // assigned to this department user
+    })
       .populate("uploadedBy", "name email")
       .populate("assignedByAuthority", "name email")
       .sort({ createdAt: -1 });
@@ -20,6 +24,8 @@ export const getDepartmentIssues = async (req, res) => {
     res.status(500).json({ success: false, message: "Server error" });
   }
 };
+
+
 
 // 🔹 Update the status of a specific issue
 export const updateDepartmentIssueStatus = async (req, res) => {
@@ -35,10 +41,12 @@ export const updateDepartmentIssueStatus = async (req, res) => {
 
     const issue = await Issue.findById(id);
     if (!issue) return res.status(404).json({ success: false, message: "Issue not found" });
+console.log("Issue assignedDepartment:", issue.assignedDepartment);
 
-    if (!issue.assignedDepartment.equals(user.id)) {
-      return res.status(403).json({ success: false, message: "You are not assigned to this issue" });
-    }
+    if (!issue.assignedDepartment || issue.assignedDepartment.toString() !== user.id) {
+  return res.status(403).json({ success: false, message: "You are not assigned to this issue" });
+}
+
 
     issue.status = status;
     issue.statusHistory.push({ status, changedBy: user._id });
