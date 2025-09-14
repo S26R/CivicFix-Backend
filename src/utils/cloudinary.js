@@ -1,43 +1,37 @@
-import { v2 as cloudinary } from "cloudinary";
-import env from "../env.js"; // make sure your env has CLOUDINARY_* vars
+import { v2 as cloudinary } from 'cloudinary';
+import env from '../env.js'; // make sure CLOUDINARY_* vars exist
 
-// Configure Cloudinary
+// Configure Cloudinary once
 cloudinary.config({
   cloud_name: env.CLOUDINARY_CLOUD_NAME,
   api_key: env.CLOUDINARY_API_KEY,
   api_secret: env.CLOUDINARY_API_SECRET,
 });
 
-// Upload buffer to Cloudinary
+/**
+ * Upload a Buffer to Cloudinary.
+ * @param {Buffer} fileBuffer
+ * @param {string} fileName
+ * @returns {Promise<object|null>} result from Cloudinary
+ */
 export const uploadOnCloudinary = async (fileBuffer, fileName) => {
-  try {
-    if (!fileBuffer) return null;
+  if (!fileBuffer) return null;
 
-    const response = await cloudinary.uploader.upload_stream(
+  return new Promise((resolve, reject) => {
+    const uploadStream = cloudinary.uploader.upload_stream(
       {
-        resource_type: "auto",
-        public_id: fileName?.split(".")[0], // optional: keep original name
+        resource_type: 'auto',
+        public_id: fileName?.split('.')[0], // optional: keep original name
       },
-      (error, result) => {
-        if (error) throw error;
-        return result;
+      (err, result) => {
+        if (err) {
+          console.error('Cloudinary upload error:', err);
+          return reject(err);
+        }
+        resolve(result);
       }
     );
 
-    // Return uploaded result
-    return new Promise((resolve, reject) => {
-      const stream = cloudinary.uploader.upload_stream(
-        { resource_type: "auto", public_id: fileName?.split(".")[0] },
-        (err, result) => {
-          if (err) reject(err);
-          else resolve(result);
-        }
-      );
-
-      stream.end(fileBuffer);
-    });
-  } catch (error) {
-    console.error("Cloudinary upload error:", error.message);
-    return null;
-  }
+    uploadStream.end(fileBuffer);
+  });
 };

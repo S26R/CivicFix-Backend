@@ -45,6 +45,7 @@ const issueSchema = new mongoose.Schema(
           required: true,
         },
         url: { type: String, required: true }, // Cloudinary or S3 URL
+        publicId: { type: String }, // Cloudinary public ID for deletion
       },
     ],
 

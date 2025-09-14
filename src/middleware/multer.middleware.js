@@ -1,7 +1,9 @@
+// middleware/multer.middleware.js
 import multer from "multer";
 
-// Memory storage — avoids local disk usage
+// Store files in memory so we can directly send their buffers to Cloudinary
 const storage = multer.memoryStorage();
 
-// Export multer middleware
+// Export the multer instance
 export const upload = multer({ storage });
+
