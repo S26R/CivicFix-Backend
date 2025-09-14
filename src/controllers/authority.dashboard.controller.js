@@ -188,24 +188,29 @@ export const assignIssueToDepartment = async (req, res) => {
     }
 
     // Assign department and authority in Issue
-    issue.assignedDepartment = departmentUser._id;
-    issue.assignedByAuthority = authorityUser._id;
+    // Assign department and authority in Issue
+issue.assignedDepartment = departmentUser._id;
+issue.assignedByAuthority = authorityUser._id;
 
-    // Log assignment in issue history
-    issue.assignmentHistory.push({
-      assignedDepartment: departmentUser._id,
-      assignedBy: authorityUser._id,
-      assignedAt: new Date()
-    });
+// Log assignment in issue history
+issue.assignmentHistory.push({
+  assignedDepartment: departmentUser._id,
+  assignedBy: authorityUser._id,
+  assignedAt: new Date()
+});
 
-    // Log status change to "assigned"
-    issue.statusHistory.push({
-      status: "assigned",
-      changedBy: authorityUser._id,
-      changedAt: new Date()
-    });
+// ✅ Make sure to update status directly
+issue.status = "assigned";
 
-    await issue.save();
+// Log status change to "assigned"
+issue.statusHistory.push({
+  status: "assigned",
+  changedBy: authorityUser._id,
+  changedAt: new Date()
+});
+
+await issue.save();
+
 
     // Update department user's assignedIssues only if not already present
    const deptHasIssue = departmentUser.assignedIssues.some(
