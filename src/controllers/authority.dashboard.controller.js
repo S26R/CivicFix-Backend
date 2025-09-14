@@ -171,7 +171,7 @@ export const getAllCitizen = async (req, res) => {
   try {
     // Filter out authority users
     const users = await userModel
-      .find({ role: { $nin: ["authority", "department"] } }) // adjust if your schema uses a different field
+      .find({ role: { $nin: ["authority", "citizen"] } }) // adjust if your schema uses a different field
       .select("-password"); // exclude password field only
 
     res.json(users);
