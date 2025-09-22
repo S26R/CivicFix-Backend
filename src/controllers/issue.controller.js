@@ -8,15 +8,12 @@ export const createIssue = async (req, res) => {
     let { topic, description, lat, lng, severity, department, joinExisting } =
       req.body;
 
-    // Remove extra quotes
     topic = topic?.replace(/^"(.*)"$/, "$1");
     description = description?.replace(/^"(.*)"$/, "$1");
 
-    // Convert numbers
     lat = parseFloat(lat);
     lng = parseFloat(lng);
 
-    // Convert to boolean if needed
     if (typeof joinExisting === "string") {
       joinExisting = joinExisting.toLowerCase() === "true";
     }
@@ -25,17 +22,18 @@ export const createIssue = async (req, res) => {
       return res.status(400).json({ error: "Missing required fields" });
     }
 
+    // Check for nearby similar issue
     const nearbyIssue = await Issue.findOne({
       department,
       location: {
         $near: {
           $geometry: { type: "Point", coordinates: [lng, lat] },
-          $maxDistance: 12, // 12 meters
+          $maxDistance: 12, // meters
         },
       },
     });
 
-    // Step 2: If similar issue exists & user hasn’t decided yet
+    // Step 2: Similar issue found
     if (nearbyIssue && joinExisting === undefined) {
       return res.status(200).json({
         similarFound: true,
@@ -44,72 +42,84 @@ export const createIssue = async (req, res) => {
       });
     }
 
-    // Step 3: If user wants to join existing issue
+    // Step 3: Join existing issue
     else if (nearbyIssue && joinExisting === true) {
-      console.log("Joining existing issue:", nearbyIssue);
-      // Add this user to participants
-      if (!nearbyIssue.participants.includes(req.user.id)) {
-        nearbyIssue.participants.push(req.user.id);
+      const userId = req.user.userId || req.user.id; // ✅ accept new or old
+      if (!nearbyIssue.participants.includes(userId)) {
+        nearbyIssue.participants.push(userId);
         await nearbyIssue.save();
       }
-      return res
-        .status(200)
-        .json({ msg: "Joined existing issue", issue: nearbyIssue });
-    } else {
-      let media = [];
-
-if (req.files && req.files.length > 0) {
-  const uploads = await Promise.all(
-    req.files.map(async (file) => {
-      // file.buffer comes from memoryStorage
-      const result = await uploadOnCloudinary(file.buffer, file.originalname);
-      if (!result) return null;
-
-      return {
-        type: result.resource_type,
-        url: result.secure_url,
-        publicId: result.public_id,
-      };
-    })
-  );
-  media = uploads.filter(Boolean);
-}
-
-      const newIssue = new Issue({
-        topic,
-        description,
-        department,
-        severity: severity || "moderate",
-        location: {
-          type: "Point",
-          coordinates: [parseFloat(lng), parseFloat(lat)],
-        },
-        media,
-        uploadedBy: req.user.id, // from auth middleware
+      return res.status(200).json({
+        msg: "Joined existing issue",
+        issue: nearbyIssue,
       });
-
-      await newIssue.save();
-      res
-        .status(201)
-        .json({ message: "Issue created successfully", issue: newIssue });
     }
+
+    // Step 4: Create new issue
+    let media = [];
+    if (req.files && req.files.length > 0) {
+      const uploads = await Promise.all(
+        req.files.map(async (file) => {
+          const result = await uploadOnCloudinary(file.buffer, file.originalname);
+          if (!result) return null;
+          return {
+            type: result.resource_type,
+            url: result.secure_url,
+            publicId: result.public_id,
+          };
+        })
+      );
+      media = uploads.filter(Boolean);
+    }
+
+    const userId = req.user.userId || req.user.id; // ✅ use new userId if exists
+
+    const newIssue = new Issue({
+      topic,
+      description,
+      department,
+      severity: severity || "moderate",
+      location: {
+        type: "Point",
+        coordinates: [lng, lat],
+      },
+      media,
+      uploadedBy: userId,
+      participants: [userId], // uploader is first participant
+    });
+
+    await newIssue.save();
+    res.status(201).json({
+      message: "Issue created successfully",
+      issue: newIssue,
+    });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: "Failed to create issue" });
+    res.status(500).json({ error: "Failed to create issue", details: err.message });
   }
 };
 
+
 export const getIssueById = async (req, res) => {
   try {
-    const issue = await Issue.findById(req.params.id);
+    const { id } = req.params;
+
+    // Find by Mongo _id first, then fallback to issueId
+    let issue = await Issue.findById(id);
+    if (!issue) {
+      issue = await Issue.findOne({ issueId: id });
+    }
+
     if (!issue) {
       return res.status(404).json({ error: "Issue not found" });
     }
+
     res.json(issue);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 };
+
 
 // Citizen Feed
 export const getNearbyIssues = async (req, res) => {
@@ -151,7 +161,12 @@ export const getAllIssues = async (req, res) => {
 export const getUserIssues = async (req, res) => {
   try {
     const userId = req.params.id;
-    const issues = await Issue.find({ uploadedBy: userId });
+    const issues = await Issue.find({
+      $or: [
+        { uploadedBy: userId },
+        { participants: userId }
+      ]
+    });
     res.json(issues);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -160,13 +175,11 @@ export const getUserIssues = async (req, res) => {
 
 export const deleteIssue = async (req, res) => {
   try {
-    const issue = await Issue.findById(req.params.id);
-    if (!issue) {
-      return res.status(404).json({ msg: "Issue not found" });
-    }
+    const issue = await Issue.findById(req.params.id) || await Issue.findOne({ issueId: req.params.id });
+    if (!issue) return res.status(404).json({ msg: "Issue not found" });
 
-    // Check if the logged-in user is the one who created the issue
-    if (issue.uploadedBy.toString() !== req.user.id) {
+    const userId = req.user.userId || req.user.id;
+    if (issue.uploadedBy !== userId) {
       return res.status(403).json({ msg: "Unauthorized action" });
     }
 
@@ -180,12 +193,10 @@ export const deleteIssue = async (req, res) => {
 // ✅ Upvote an issue
 export const upvoteIssue = async (req, res) => {
   try {
-    const userId = req.user.id; // assuming auth middleware sets req.user
-    const issue = await Issue.findById(req.params.id);
-    console.log(issue);
-    if (!issue) {
-      return res.status(404).json({ msg: "Issue not found" });
-    }
+    const userId = req.user.userId || req.user.id;
+    const issue = await Issue.findById(req.params.id) || await Issue.findOne({ issueId: req.params.id });
+
+    if (!issue) return res.status(404).json({ msg: "Issue not found" });
 
     if (issue.upvotes.includes(userId)) {
       return res.status(400).json({ msg: "Already upvoted" });
@@ -203,20 +214,16 @@ export const upvoteIssue = async (req, res) => {
 // ✅ Remove upvote
 export const removeUpvote = async (req, res) => {
   try {
-    const userId = req.user.id;
-    const issue = await Issue.findById(req.params.id);
+    const userId = req.user.userId || req.user.id;
+    const issue = await Issue.findById(req.params.id) || await Issue.findOne({ issueId: req.params.id });
 
-    if (!issue) {
-      return res.status(404).json({ msg: "Issue not found" });
-    }
+    if (!issue) return res.status(404).json({ msg: "Issue not found" });
 
     if (!issue.upvotes.includes(userId)) {
       return res.status(400).json({ msg: "You haven’t upvoted this issue" });
     }
 
-    issue.upvotes = issue.upvotes.filter(
-      (id) => id.toString() !== userId.toString()
-    );
+    issue.upvotes = issue.upvotes.filter((id) => id !== userId);
     await issue.save();
 
     res.json({ msg: "Upvote removed", count: issue.upvotes.length });
@@ -224,6 +231,7 @@ export const removeUpvote = async (req, res) => {
     res.status(500).json({ msg: "Server error", error: err.message });
   }
 };
+
 
 export const rateLimiter = rateLimit({
   window: 60 * 1000,
@@ -313,6 +321,13 @@ export const getCitizenFeed = async (req, res) => {
     res.status(500).json({ error: "Failed to fetch feed" });
   }
 };
+
+
+
+
+
+
+
 
 // placeholders for future
 export const getAuthorityFeed = (req, res) => {

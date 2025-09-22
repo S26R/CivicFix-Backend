@@ -2,6 +2,8 @@ import mongoose from "mongoose";
 
 const issueSchema = new mongoose.Schema(
   {
+    issueId: { type: String, unique: true }, // ✅ Custom ID like ISU-123
+
     topic: { type: String, required: true },
     description: { type: String, required: true },
 
@@ -21,17 +23,17 @@ const issueSchema = new mongoose.Schema(
       required: true 
     },
 
-    // 🔹 Currently assigned department user
-    assignedDepartment: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+    // 🔹 Currently assigned department user (custom userId)
+    assignedDepartment: { type: String, ref: "User" },
 
-    // 🔹 Authority who assigned the issue
-    assignedByAuthority: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+    // 🔹 Authority who assigned the issue (custom userId)
+    assignedByAuthority: { type: String, ref: "User" },
 
-    // 🔹 Assignment history (tracks reassignment too)
+    // 🔹 Assignment history
     assignmentHistory: [
       {
-        assignedDepartment: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
-        assignedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" }, // authority
+        assignedDepartment: { type: String, ref: "User" },
+        assignedBy: { type: String, ref: "User" }, // authority userId
         assignedAt: { type: Date, default: Date.now }
       }
     ],
@@ -44,7 +46,7 @@ const issueSchema = new mongoose.Schema(
           enum: ["image", "video", "audio"],
           required: true,
         },
-        url: { type: String, required: true }, // Cloudinary or S3 URL
+        url: { type: String, required: true },
       },
     ],
 
@@ -53,7 +55,7 @@ const issueSchema = new mongoose.Schema(
       coordinates: { type: [Number], required: true }, // [lng, lat]
     },
 
-    upvotes: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+    upvotes: [{ type: String, ref: "User" }], // ✅ store userId
 
     severity: {
       type: String,
@@ -71,25 +73,25 @@ const issueSchema = new mongoose.Schema(
     statusHistory: [
       {
         status: { type: String, enum: ["verifying", "in-progress", "resolved", "rejected", "assigned"] },
-        changedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+        changedBy: { type: String, ref: "User" }, // ✅ custom userId
         changedAt: { type: Date, default: Date.now }
       }
     ],
 
     // Track the reporting user
     uploadedBy: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
+      type: String,
+      ref: "User", // ✅ custom userId
       required: true,
     },
 
-    participants: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+    participants: [{ type: String, ref: "User" }], // ✅ custom userId
 
     // Proof images from municipality for state changes
     municipalityProofs: [
       {
         status: { type: String, enum: ["raised", "in-progress", "resolved"] },
-        mediaUrl: { type: String }, // proof image/video
+        mediaUrl: { type: String },
         addedAt: { type: Date, default: Date.now },
       },
     ],
@@ -98,15 +100,32 @@ const issueSchema = new mongoose.Schema(
 
     falseReportChecks: [
       {
-        userId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
-        confirmed: { type: Boolean }, // true = valid, false = fake
+        userId: { type: String, ref: "User" }, // ✅ custom userId
+        confirmed: { type: Boolean },
       },
     ],
   },
   { timestamps: true }
 );
 
+// 🔹 Geospatial index
 issueSchema.index({ location: "2dsphere" });
+
+// 🔹 Pre-save hook to auto-generate issueId
+issueSchema.pre("save", async function (next) {
+  if (!this.issueId) {
+    const lastIssue = await mongoose.model("Issue").findOne().sort({ createdAt: -1 });
+    let nextId = 1;
+
+    if (lastIssue && lastIssue.issueId) {
+      const lastNum = parseInt(lastIssue.issueId.replace("ISU-", ""), 10);
+      nextId = lastNum + 1;
+    }
+
+    this.issueId = `ISU-${nextId}`;
+  }
+  next();
+});
 
 const Issue = mongoose.model("Issue", issueSchema);
 export default Issue;
