@@ -4,6 +4,7 @@ import User from "../models/user.model.js";
 import axios from "axios";
 import FormData from "form-data";
 
+import env from "../env.js";
 let isRunning = false;
 
 const issueCronJob = {
@@ -60,11 +61,11 @@ const issueCronJob = {
             let verifyResponse;
             try {
               const { data } = await axios.post(
-                "https://civicfix-ai.onrender.com/predict_all", // or your live endpoint
+                `${env.AI_MODEL_URL}/predict_all`, // or your live endpoint
                 formData,
                 {
                   headers: formData.getHeaders(), // important for form-data
-                  timeout: 1500000,
+                  timeout: 1500000,//25mins max
                 }
               );
               verifyResponse = data;
