@@ -5,7 +5,7 @@ import jwt from "jsonwebtoken";
 // ✅ Signup (default: citizen)
 export const signup = async (req, res) => {
   try {
-    const { email, phone, aadhaar, password, wardNumber, villageArea, location } = req.body;
+    const { name, email, phone, aadhaar, password, wardNumber, villageArea, location } = req.body;
 
     const exists = await User.findOne({ $or: [{ email }, { phone }, { aadhaar }] });
     if (exists) return res.status(400).json({ msg: "User already exists" });
@@ -14,6 +14,7 @@ export const signup = async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, salt);
 
     const newUser = new User({
+      name,
       email,
       phone,
       aadhaar,
@@ -25,7 +26,17 @@ export const signup = async (req, res) => {
     });
 
     await newUser.save();
-    res.status(201).json({ msg: "Signup successful. Default role: citizen" });
+
+    res.status(201).json({
+      msg: "Signup successful. Default role: citizen",
+      user: {
+        userId: newUser.userId, // ✅ expose USR-123
+        name: newUser.name,
+        email: newUser.email,
+        phone: newUser.phone,
+        role: newUser.role,
+      },
+    });
   } catch (err) {
     res.status(500).json({ msg: err.message });
   }
@@ -50,32 +61,49 @@ export const login = async (req, res) => {
       { expiresIn: "1d" }
     );
 
-    res.json({ msg: "Citizen login successful", role: user.role, token });
+    res.json({
+      msg: "Citizen login successful",
+      token,
+      user: {
+        userId: user.userId, // ✅ expose custom ID
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        role: user.role,
+      },
+    });
   } catch (err) {
     res.status(500).json({ msg: err.message });
   }
 };
 
 // ✅ Department Login
-// ✅ Department Login
 export const departmentLogin = async (req, res) => {
   try {
     const { phone, password } = req.body;
     const user = await User.findOne({ phone, role: "department" });
-    
-    // 💡 Fix: Check if user exists BEFORE comparing passwords
+
     if (!user) return res.status(404).json({ msg: "Department not found" });
-    
+
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) return res.status(401).json({ msg: "Invalid credentials" });
-    
+
     const token = jwt.sign(
       { id: user._id, role: user.role },
       process.env.JWT_SECRET,
       { expiresIn: "1d" }
     );
 
-    res.json({ msg: "Department login successful", role: user.role, token });
+    res.json({
+      msg: "Department login successful",
+      token,
+      user: {
+        userId: user.userId,
+        name: user.name,
+        phone: user.phone,
+        role: user.role,
+      },
+    });
   } catch (err) {
     res.status(500).json({ msg: err.message });
   }
@@ -98,39 +126,55 @@ export const authorityLogin = async (req, res) => {
       { expiresIn: "1d" }
     );
 
-    res.json({ msg: "Authority login successful", role: user.role, token });
+    res.json({
+      msg: "Authority login successful",
+      token,
+      user: {
+        userId: user.userId,
+        name: user.name,
+        phone: user.phone,
+        role: user.role,
+      },
+    });
   } catch (err) {
     res.status(500).json({ msg: err.message });
   }
 };
 
-
+// ✅ Profile
 export const profile = async (req, res) => {
   try {
     const userId = req.params.id;
-    const user = await User.findById(userId).select('-password'); // Exclude password
+
+    // Find user by Mongo _id OR custom userId
+    const user =
+      (await User.findOne({ userId }).select("-password")) ||
+      (await User.findById(userId).select("-password"));
 
     if (!user) {
-      return res.status(404).json({ msg: 'User not found' });
+      return res.status(404).json({ msg: "User not found" });
     }
 
-    res.json(user);
+    res.json({
+      userId: user.userId,
+      name: user.name,
+      email: user.email,
+      phone: user.phone,
+      role: user.role,
+      wardNumber: user.wardNumber,
+      villageArea: user.villageArea,
+      location: user.location,
+      createdAt: user.createdAt,
+    });
   } catch (err) {
     res.status(500).json({ msg: err.message });
   }
-}
-
-
-
-// controllers/auth.controller.js
-// ... (your existing imports and functions)
+};
 
 // ✅ Logout
 export const logout = (req, res) => {
   try {
-    // This is optional on the backend with JWTs, as the client handles token deletion.
-    // However, it's good for a clear API response.
-    res.status(200).json({ msg: 'Logout successful' });
+    res.status(200).json({ msg: "Logout successful" });
   } catch (err) {
     res.status(500).json({ msg: err.message });
   }
