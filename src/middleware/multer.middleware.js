@@ -1,7 +1,7 @@
 import multer from "multer";
 
-// Memory storage — avoids local disk usage
-const storage = multer.memoryStorage();
+const storage = multer.memoryStorage(); // store in memory for processing
 
-// Export multer middleware
-export const upload = multer({ storage });
+const upload = multer({ storage });
+
+export default upload; // ✅ default export
