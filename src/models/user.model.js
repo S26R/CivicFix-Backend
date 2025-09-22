@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 
 const userSchema = new mongoose.Schema({
   userId: { type: String, unique: true }, // ✅ Custom ID like USR-123
-  name: { type: String, required: true },
+  name: { type: String },
 
   email: { type: String, required: true, unique: true },
   phone: { type: String, required: true, unique: true },
@@ -18,6 +18,10 @@ const userSchema = new mongoose.Schema({
     enum: ["citizen", "department", "authority"],
     default: "citizen",
   },
+
+  // 🔹 Department-specific fields
+  departmentName: { type: String },       // e.g., "Sanitation Department"
+  departmentHeadName: { type: String },   // e.g., "Mr. Rajesh Kumar"
 
   // 🔹 Department users: track who assigned the issue and when
   assignedIssues: [

@@ -7,21 +7,17 @@ const issueSchema = new mongoose.Schema(
     topic: { type: String, required: true },
     description: { type: String, required: true },
 
-    department: { 
-      type: String, 
-      enum: [
-        "Roads & Infrastructure Department",
-        "Street Lighting & Electricity Department",
-        "Water Supply & Drainage Department",
-        "Sanitation & Waste Management Department",
-        "Public Safety & Transport Department",
-        "Parks & Public Spaces Department",
-        "Pollution Control Department",
-        "Animal Control Department",
-        "General Department"
-      ],
-      required: true 
-    },
+assignedDepartmentName: {
+  type: String,
+  enum: [
+"Electricity",
+ "Garbage & Sanitation",
+ "Health Services",
+ "Roads & Infrastructure",
+ "Street Lights",
+ "Water Supply"
+  ],
+},
 
     // 🔹 Currently assigned department user (custom userId)
     assignedDepartment: { type: String, ref: "User" },
@@ -38,17 +34,24 @@ const issueSchema = new mongoose.Schema(
       }
     ],
 
-    // Media uploads
+    // Media uploads (image + video only)
     media: [
       {
         type: {
           type: String,
-          enum: ["image", "video", "audio"],
+          enum: ["image", "video"], // ✅ audio removed here
           required: true,
         },
         url: { type: String, required: true },
       },
     ],
+
+    // 🔹 Separate audio field
+    audio: {
+      url: { type: String },
+      duration: { type: Number }, // optional: length in seconds
+      format: { type: String },   // optional: mp3, wav, etc.
+    },
 
     location: {
       type: { type: String, enum: ["Point"], default: "Point" },
@@ -70,13 +73,26 @@ const issueSchema = new mongoose.Schema(
     },
 
     // Track status changes
-    statusHistory: [
-      {
-        status: { type: String, enum: ["verifying", "in-progress", "resolved", "rejected", "assigned"] },
-        changedBy: { type: String, ref: "User" }, // ✅ custom userId
-        changedAt: { type: Date, default: Date.now }
+   statusHistory: [
+  {
+    status: { 
+      type: String, 
+      enum: ["raised","verifying", "in-progress", "resolved", "rejected", "assigned"] 
+    },
+    changedBy: { 
+      type: String, 
+      validate: {
+        validator: function(v) {
+          // Accept either "system" or a string that looks like a userId
+          return v === "system" || typeof v === "string";
+        },
+        message: props => `${props.value} is not a valid user ID or "system"`
       }
-    ],
+    },
+    changedAt: { type: Date, default: Date.now }
+  }
+],
+
 
     // Track the reporting user
     uploadedBy: {
